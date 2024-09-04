@@ -1,9 +1,7 @@
 "use client";
-import {
-  compareItems,
-  RankingInfo,
-  rankItem,
-} from "@tanstack/match-sorter-utils";
+
+import { RankingInfo, rankItem } from "@tanstack/match-sorter-utils";
+import { useQuery } from "@tanstack/react-query";
 import {
   Column,
   ColumnDef,
@@ -15,15 +13,17 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  SortingFn,
-  sortingFns,
   useReactTable,
 } from "@tanstack/react-table";
-import { useEffect, useMemo, useState } from "react";
-import { BiSolidDownArrow, BiSolidUpArrow } from "react-icons/bi";
-import FlightDates, { Availability } from "./flightDates";
-import { useForm } from "react-hook-form";
 import { format, parseISO } from "date-fns";
+import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import {
+  BiSolidDownArrow,
+  BiSolidTrashAlt,
+  BiSolidUpArrow,
+} from "react-icons/bi";
+import FlightDates, { Availability } from "./flightDates";
 
 declare module "@tanstack/react-table" {
   interface FilterFns {
@@ -46,19 +46,6 @@ const fuzzyFilter: FilterFn<any> = (row, columnId, value, addMeta) => {
   return itemRank.passed;
 };
 
-const fuzzySort: SortingFn<any> = (rowA, rowB, columnId) => {
-  let dir = 0;
-
-  if (rowA.columnFiltersMeta[columnId]) {
-    dir = compareItems(
-      rowA.columnFiltersMeta[columnId]?.itemRank!,
-      rowB.columnFiltersMeta[columnId]?.itemRank!,
-    );
-  }
-
-  return dir === 0 ? sortingFns.alphanumeric(rowA, rowB, columnId) : dir;
-};
-
 export type Person = {
   postId: string;
   name: string;
@@ -79,14 +66,13 @@ interface Flight {
 export default function Flights() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
-  const [flights, setFlights] = useState<Flight[]>([]);
-  const [refetch, setRefetch] = useState<boolean>(false);
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
   } = useForm<Flight>();
+  const [open, setModalOpen] = useState<string | null>(null);
 
   const columns = useMemo<ColumnDef<Flight, any>[]>(
     () => [
@@ -168,12 +154,48 @@ export default function Flights() {
         enableColumnFilter: false,
         enableSorting: false,
       },
+      {
+        id: "action",
+        accessorFn: (row) => row._id,
+        header: () => <></>,
+        cell: (info) => (
+          <button onClick={() => setModalOpen(info.getValue())}>
+            <BiSolidTrashAlt className="text-red-500" />
+          </button>
+        ),
+        enableColumnFilter: false,
+        enableSorting: false,
+      },
     ],
     [],
   );
 
+  const handleFlightDelete = async (id: string) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/flights/delete/${id}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        allFlights.refetch();
+      }
+    } catch (error) {
+      setModalOpen(null);
+    } finally {
+      setModalOpen(null);
+    }
+  };
+
+  const allFlights = useQuery({
+    queryKey: ["flights"],
+    queryFn: async () => {
+      const response = await fetch(`${BACKEND_URL}/api/flights/all`);
+      const data = await response.json();
+      return data;
+    },
+  });
+
   const table = useReactTable({
-    data: flights,
+    data: allFlights?.data ?? [],
     columns,
     filterFns: {
       fuzzy: fuzzyFilter,
@@ -193,12 +215,6 @@ export default function Flights() {
     getExpandedRowModel: getExpandedRowModel(),
   });
 
-  useEffect(() => {
-    fetch(`${BACKEND_URL}/api/flights/all`)
-      .then((response) => response.json())
-      .then((res) => setFlights(res));
-  }, [refetch]);
-
   const handleRouteAdd = async (data: Flight) => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/flights/create`, {
@@ -212,12 +228,78 @@ export default function Flights() {
       if (!response.ok) {
         throw new Error("Error while adding route");
       }
-      setRefetch((prev) => !prev);
+      allFlights.refetch();
       reset();
     } catch (error) {
       console.error("Failed to add route:", error);
       reset();
     }
+  };
+
+  useEffect(() => {
+    const fetchFlightDetails = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/flights/details`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            originAirportCode: "PEK",
+            destinationAirportCode: "PVG",
+            airlineCode: "CA",
+            flightNumberInteger: 1081,
+            day2Digits: "05",
+            month2Digits: "09",
+            year4Digits: "2024",
+          }),
+        });
+
+        const flightDetails = await response.json();
+      } catch (error) {
+        console.error("Error fetching flight details:", error);
+      }
+    };
+
+    fetchFlightDetails();
+  }, []);
+
+  const ConfirmationModal = ({ id }: { id: string }) => {
+    return (
+      <div className="fixed inset-0 z-10 flex items-center justify-center p-4 bg-black/50">
+        <div className="relative w-full max-w-md p-6 bg-white rounded-lg shadow-xl">
+          <button
+            className="absolute top-3 right-3 flex justify-center items-center rounded-full h-8 w-8 bg-gray-200 hover:bg-gray-300 text-gray-800 focus:outline-none"
+            onClick={() => setModalOpen(null)}
+            title="Close"
+          >
+            <span className="text-xl leading-none">&times;</span>
+          </button>
+          <div className="mt-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Confirm Deletion
+            </h3>
+            <p className="mt-2 text-gray-600">
+              Are you sure you want to delete this flight?
+            </p>
+          </div>
+          <div className="mt-6 flex justify-end space-x-2">
+            <button
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none"
+              onClick={() => setModalOpen(null)}
+            >
+              Cancel
+            </button>
+            <button
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none"
+              onClick={() => handleFlightDelete(id)}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -334,7 +416,7 @@ export default function Flights() {
                           flightId={row.original._id}
                           program={row.original.program}
                           availability={row.original.availability}
-                          handleRefresh={() => setRefetch((prev) => !prev)}
+                          handleRefresh={() => allFlights.refetch()}
                         />
                       </div>
                     )}
@@ -409,6 +491,7 @@ export default function Flights() {
             </button>
           </div>
         </div>
+        {open ? <ConfirmationModal id={open} /> : ""}
       </>
     </div>
   );

@@ -85,7 +85,7 @@ const FlightDates = ({
   const handleUpdateAvailability = async (
     date: string,
     flightClass: string,
-    availability: boolean,
+    availability: boolean | null,
   ) => {
     const response = await fetch(
       `${BACKEND_URL}/api/flights/update-availability/${flightId}`,
@@ -163,7 +163,11 @@ const FlightDates = ({
                         available ? "bg-green-500" : "bg-green-200"
                       } px-3 py-2 text-center rounded-md`}
                       onClick={(e: any) =>
-                        handleUpdateAvailability(date, "economy", true)
+                        handleUpdateAvailability(
+                          date,
+                          "economy",
+                          available ? null : true,
+                        )
                       }
                     >
                       Yes
@@ -173,7 +177,11 @@ const FlightDates = ({
                         notAvailable ? "bg-red-500" : "bg-red-200"
                       } px-3 py-2 text-center rounded-md`}
                       onClick={(e: any) =>
-                        handleUpdateAvailability(date, "economy", false)
+                        handleUpdateAvailability(
+                          date,
+                          "economy",
+                          notAvailable ? null : false,
+                        )
                       }
                     >
                       No
@@ -200,7 +208,11 @@ const FlightDates = ({
                         available ? "bg-green-500" : "bg-green-200"
                       } px-3 py-2 text-center rounded-md`}
                       onClick={(e: any) =>
-                        handleUpdateAvailability(date, "buisness", true)
+                        handleUpdateAvailability(
+                          date,
+                          "buisness",
+                          available ? null : true,
+                        )
                       }
                     >
                       Yes
@@ -210,7 +222,11 @@ const FlightDates = ({
                         notAvailable ? "bg-red-500" : "bg-red-200"
                       } px-3 py-2 text-center rounded-md`}
                       onClick={(e: any) =>
-                        handleUpdateAvailability(date, "buisness", false)
+                        handleUpdateAvailability(
+                          date,
+                          "buisness",
+                          notAvailable ? null : false,
+                        )
                       }
                     >
                       No
