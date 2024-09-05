@@ -130,10 +130,11 @@ export default function Flights() {
           </span>
         ),
         cell: ({ getValue, row }) => {
+          const value = getValue();
           return (
             row.getCanExpand() && (
               <div className="relative flex justify-center gap-2">
-                <div>{getValue() || "N/A"}</div>
+                <div>{value ? value.split(":")[1] : "N/A"}</div>
                 <button
                   {...{
                     onClick: row.getToggleExpandedHandler(),
@@ -235,34 +236,6 @@ export default function Flights() {
       reset();
     }
   };
-
-  useEffect(() => {
-    const fetchFlightDetails = async () => {
-      try {
-        const response = await fetch(`${BACKEND_URL}/api/flights/details`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            originAirportCode: "PEK",
-            destinationAirportCode: "PVG",
-            airlineCode: "CA",
-            flightNumberInteger: 1081,
-            day2Digits: "05",
-            month2Digits: "09",
-            year4Digits: "2024",
-          }),
-        });
-
-        const flightDetails = await response.json();
-      } catch (error) {
-        console.error("Error fetching flight details:", error);
-      }
-    };
-
-    fetchFlightDetails();
-  }, []);
 
   const ConfirmationModal = ({ id }: { id: string }) => {
     return (
